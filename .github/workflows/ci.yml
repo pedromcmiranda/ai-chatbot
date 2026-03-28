@@ -1,0 +1,93 @@
+name: CI
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+
+permissions:
+  contents: read
+  security-events: write  # required for Semgrep SARIF upload
+
+jobs:
+  lint-and-test:
+    name: Lint & Test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Lint (server)
+        run: npm run lint --workspace=server
+
+      - name: Lint (client)
+        run: npm run lint --workspace=client
+
+      - name: Type-check (server)
+        run: npx tsc --noEmit
+        working-directory: server
+
+      - name: Type-check (client)
+        run: npx tsc --noEmit
+        working-directory: client
+
+      - name: Test (server)
+        run: npm test --workspace=server
+
+      - name: Test (client)
+        run: npm test --workspace=client
+
+  security-scan:
+    name: Semgrep Security Scan
+    runs-on: ubuntu-latest
+    container:
+      image: semgrep/semgrep
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run Semgrep
+        run: |
+          semgrep \
+            --config "p/typescript" \
+            --config "p/secrets" \
+            --config "p/owasp-top-ten" \
+            --sarif \
+            --output semgrep.sarif \
+            --error \
+            --severity ERROR \
+            .
+        env:
+          SEMGREP_APP_TOKEN: ${{ secrets.SEMGREP_APP_TOKEN }}
+
+      - name: Upload SARIF to GitHub Security tab
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: semgrep.sarif
+
+  dependency-audit:
+    name: Dependency Audit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Audit dependencies
+        run: npm audit --audit-level=high

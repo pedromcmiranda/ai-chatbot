@@ -1,0 +1,77 @@
+name: CD — Deploy to Cloud Run
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+  id-token: write  # required for Workload Identity Federation
+
+env:
+  GCP_PROJECT_ID: ${{ vars.GCP_PROJECT_ID }}
+  GCP_REGION: us-central1
+  ARTIFACT_REGISTRY: ${{ vars.GCP_REGION || 'us-central1' }}-docker.pkg.dev/${{ vars.GCP_PROJECT_ID }}/app-images
+  SERVICE_NAME: ai-chatbot
+  WIF_PROVIDER: ${{ vars.WIF_PROVIDER }}   # e.g. projects/123/locations/global/workloadIdentityPools/github-pool/providers/github-provider
+  WIF_SERVICE_ACCOUNT: ${{ vars.WIF_SERVICE_ACCOUNT }}  # e.g. deploy-sa@PROJECT.iam.gserviceaccount.com
+
+jobs:
+  build-and-deploy:
+    name: Build & Deploy
+    runs-on: ubuntu-latest
+    environment: production
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # ── Authenticate to GCP via Workload Identity Federation ─────────────
+      - name: Authenticate to GCP (WIF)
+        id: auth
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ env.WIF_PROVIDER }}
+          service_account: ${{ env.WIF_SERVICE_ACCOUNT }}
+          # No key file — WIF exchanges the GitHub OIDC token for a short-lived GCP token
+
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Configure Docker for Artifact Registry
+        run: gcloud auth configure-docker ${{ env.GCP_REGION }}-docker.pkg.dev --quiet
+
+      # ── Build ─────────────────────────────────────────────────────────────
+      - name: Set image tag
+        id: tag
+        run: echo "IMAGE=${{ env.ARTIFACT_REGISTRY }}/${{ env.SERVICE_NAME }}:${{ github.sha }}" >> "$GITHUB_OUTPUT"
+
+      - name: Build Docker image
+        run: docker build -t ${{ steps.tag.outputs.IMAGE }} -f Dockerfile .
+
+      - name: Push image to Artifact Registry
+        run: docker push ${{ steps.tag.outputs.IMAGE }}
+
+      # ── Deploy ────────────────────────────────────────────────────────────
+      - name: Deploy to Cloud Run
+        run: |
+          gcloud run deploy ${{ env.SERVICE_NAME }} \
+            --image=${{ steps.tag.outputs.IMAGE }} \
+            --region=${{ env.GCP_REGION }} \
+            --project=${{ env.GCP_PROJECT_ID }} \
+            --platform=managed \
+            --service-account=${{ vars.CLOUDRUN_SA }} \
+            --set-secrets="VERTEX_AI_PROJECT=VERTEX_AI_PROJECT:latest,GCS_BUCKET_NAME=GCS_BUCKET_NAME:latest,FIREBASE_PROJECT_ID=FIREBASE_PROJECT_ID:latest,ALLOWED_ORIGINS=ALLOWED_ORIGINS:latest" \
+            --min-instances=1 \
+            --max-instances=10 \
+            --memory=512Mi \
+            --cpu=1 \
+            --concurrency=80 \
+            --timeout=60 \
+            --no-allow-unauthenticated
+
+      - name: Print service URL
+        run: |
+          gcloud run services describe ${{ env.SERVICE_NAME }} \
+            --region=${{ env.GCP_REGION }} \
+            --project=${{ env.GCP_PROJECT_ID }} \
+            --format='value(status.url)'
