@@ -1,7 +1,6 @@
 import {
   VertexAI,
   type Content,
-  type GenerateContentRequest,
   type GenerateContentResult,
 } from '@google-cloud/vertexai';
 import { trace, SpanStatusCode } from '@opentelemetry/api';
@@ -26,7 +25,6 @@ export async function generateChatResponse(
   userMessage: string,
   history: ChatMessage[],
   systemPrompt?: string,
-  tools?: GenerateContentRequest['tools'],
 ): Promise<string> {
   return tracer.startActiveSpan('gemini.generateChat', async (span) => {
     span.setAttribute('model', MODEL);
@@ -46,11 +44,7 @@ export async function generateChatResponse(
 
       const chat = model.startChat({ history: toVertexContent(history) });
 
-      const request: Parameters<typeof chat.sendMessage>[0] = tools
-        ? { contents: [{ role: 'user', parts: [{ text: userMessage }] }], tools }
-        : userMessage;
-
-      const result: GenerateContentResult = await chat.sendMessage(request as string);
+      const result: GenerateContentResult = await chat.sendMessage(userMessage);
       const response = result.response;
       const text = response.candidates?.[0]?.content?.parts?.[0]?.text ?? '';
 

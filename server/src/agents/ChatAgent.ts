@@ -139,7 +139,4 @@ function isSkill(val: unknown): val is Skill {
   );
 }
 
-// Re-export for convenience
-type SkillDefinition = ReturnType<ChatAgent['availableSkills'][number]['definition']['toString']> extends never
-  ? import('../skills/types').SkillDefinition
-  : import('../skills/types').SkillDefinition;
+export type { SkillDefinition } from '../skills/types';

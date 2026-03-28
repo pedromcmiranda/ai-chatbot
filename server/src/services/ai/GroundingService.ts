@@ -1,6 +1,5 @@
 import {
   VertexAI,
-  type Tool,
   type GenerateContentRequest,
 } from '@google-cloud/vertexai';
 import { trace, SpanStatusCode } from '@opentelemetry/api';
@@ -14,8 +13,8 @@ const vertexAI = new VertexAI({ project: PROJECT, location: LOCATION });
 const tracer = trace.getTracer('grounding-service');
 
 // Google Search Grounding tool definition
-const googleSearchTool: Tool = {
-  googleSearch: {},
+const googleSearchTool = {
+  googleSearchRetrieval: {},
 };
 
 export interface GroundedResponse {

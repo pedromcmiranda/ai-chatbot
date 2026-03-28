@@ -37,7 +37,7 @@ export async function createSignedUploadUrl(
 
       const expiresAt = new Date(Date.now() + SIGNED_URL_TTL_MINUTES * 60 * 1000);
 
-      const [uploadUrl] = await file.generateSignedUrl({
+      const [uploadUrl] = await file.getSignedUrl({
         version: 'v4',
         action: 'write',
         expires: expiresAt,
@@ -77,7 +77,7 @@ export async function createSignedDownloadUrl(
 
       const expiresAt = new Date(Date.now() + SIGNED_URL_TTL_MINUTES * 60 * 1000);
 
-      const [downloadUrl] = await file.generateSignedUrl({
+      const [downloadUrl] = await file.getSignedUrl({
         version: 'v4',
         action: 'read',
         expires: expiresAt,
