@@ -10,8 +10,8 @@ const ALLOWED_ORIGINS = (process.env.ALLOWED_ORIGINS ?? 'http://localhost:5173')
 
 const corsOptions: cors.CorsOptions = {
   origin(origin, callback) {
-    // Allow server-to-server requests (no origin) only in dev
-    if (!origin && process.env.NODE_ENV !== 'production') {
+    // Allow server-to-server / health-probe requests (no origin header)
+    if (!origin) {
       return callback(null, true);
     }
     if (origin && ALLOWED_ORIGINS.includes(origin)) {
