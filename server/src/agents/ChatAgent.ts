@@ -1,7 +1,7 @@
 import path from 'path';
 import fs from 'fs';
 import { trace, SpanStatusCode } from '@opentelemetry/api';
-import type { Skill, SkillResult } from '../skills/types';
+import type { Skill, SkillDefinition, SkillResult } from '../skills/types';
 import { generateChatResponse } from '../services/ai/GeminiService';
 import { generateGroundedResponse } from '../services/ai/GroundingService';
 import type { ChatMessage } from '../validation/schemas';
@@ -139,4 +139,3 @@ function isSkill(val: unknown): val is Skill {
   );
 }
 
-export type { SkillDefinition } from '../skills/types';
