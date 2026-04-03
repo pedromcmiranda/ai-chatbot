@@ -9,7 +9,7 @@ import type { ChatMessage } from '../../validation/schemas';
 
 const PROJECT = process.env.VERTEX_AI_PROJECT ?? '';
 const LOCATION = process.env.VERTEX_AI_LOCATION ?? 'us-central1';
-const MODEL = 'gemini-2.0-flash';
+const MODEL = 'gemini-3.1-flash-lite-preview';
 
 const vertexAI = new VertexAI({ project: PROJECT, location: LOCATION });
 const tracer = trace.getTracer('gemini-service');
