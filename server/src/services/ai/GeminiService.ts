@@ -3,7 +3,7 @@ import { trace, SpanStatusCode } from '@opentelemetry/api';
 import { logger } from '../../utils/logger';
 import type { ChatMessage } from '../../validation/schemas';
 
-const MODEL = 'gemini-2.5-flash-lite-preview-06-17';
+const MODEL = 'gemini-3.1-flash-lite-preview';
 const tracer = trace.getTracer('gemini-service');
 
 function getClient(): GoogleGenAI {
