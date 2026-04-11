@@ -1,27 +1,20 @@
-import {
-  VertexAI,
-  type GenerateContentRequest,
-} from '@google-cloud/vertexai';
+import { GoogleGenAI } from '@google/genai';
 import { trace, SpanStatusCode } from '@opentelemetry/api';
 import { logger } from '../../utils/logger';
 
-const PROJECT = process.env.VERTEX_AI_PROJECT ?? '';
-const LOCATION = process.env.VERTEX_AI_LOCATION ?? 'us-central1';
-const MODEL = 'gemini-3.1-flash-lite-preview';
-
-const vertexAI = new VertexAI({ project: PROJECT, location: LOCATION });
+const MODEL = 'gemini-2.5-flash-lite-preview-06-17';
 const tracer = trace.getTracer('grounding-service');
 
-// Google Search Grounding tool definition
-const googleSearchTool = {
-  googleSearchRetrieval: {},
-};
+function getClient(): GoogleGenAI {
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey) throw new Error('GEMINI_API_KEY environment variable is not set');
+  return new GoogleGenAI({ apiKey });
+}
 
 export interface GroundedResponse {
   text: string;
   groundingMetadata?: {
     webSearchQueries?: string[];
-    searchEntryPoint?: { renderedContent: string };
     groundingChunks?: Array<{ web?: { uri: string; title: string } }>;
   };
 }
@@ -35,28 +28,22 @@ export async function generateGroundedResponse(
     span.setAttribute('grounding', 'google_search');
 
     try {
-      const model = vertexAI.getGenerativeModel({
+      const ai = getClient();
+
+      const response = await ai.models.generateContent({
         model: MODEL,
-        systemInstruction: systemPrompt
-          ? { role: 'system', parts: [{ text: systemPrompt }] }
-          : undefined,
-        tools: [googleSearchTool],
+        contents: prompt,
+        config: {
+          systemInstruction: systemPrompt,
+          tools: [{ googleSearch: {} }],
+        },
       });
 
-      const request: GenerateContentRequest = {
-        contents: [{ role: 'user', parts: [{ text: prompt }] }],
-      };
-
-      const result = await model.generateContent(request);
-      const candidate = result.response.candidates?.[0];
-      const text = candidate?.content?.parts?.[0]?.text ?? '';
-      const groundingMetadata = candidate?.groundingMetadata as GroundedResponse['groundingMetadata'];
+      const text = response.text ?? '';
+      const groundingMetadata = response.candidates?.[0]?.groundingMetadata as GroundedResponse['groundingMetadata'];
 
       span.setStatus({ code: SpanStatusCode.OK });
-      logger.debug(
-        { queries: groundingMetadata?.webSearchQueries },
-        'Grounded response generated',
-      );
+      logger.debug({ queries: groundingMetadata?.webSearchQueries }, 'Grounded response generated');
 
       return { text, groundingMetadata };
     } catch (err) {

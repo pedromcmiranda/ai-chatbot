@@ -60,7 +60,7 @@ jobs:
             --project=${{ env.GCP_PROJECT_ID }} \
             --platform=managed \
             --service-account=${{ vars.CLOUDRUN_SA }} \
-            --set-secrets="VERTEX_AI_PROJECT=VERTEX_AI_PROJECT:latest,GCS_BUCKET_NAME=GCS_BUCKET_NAME:latest,FIREBASE_PROJECT_ID=FIREBASE_PROJECT_ID:latest,ALLOWED_ORIGINS=ALLOWED_ORIGINS:latest" \
+            --set-secrets="GEMINI_API_KEY=GEMINI_API_KEY:latest,GCS_BUCKET_NAME=GCS_BUCKET_NAME:latest,FIREBASE_PROJECT_ID=FIREBASE_PROJECT_ID:latest,ALLOWED_ORIGINS=ALLOWED_ORIGINS:latest" \
             --min-instances=1 \
             --max-instances=10 \
             --memory=512Mi \

@@ -1,24 +1,15 @@
-import {
-  VertexAI,
-  type Content,
-  type GenerateContentResult,
-} from '@google-cloud/vertexai';
+import { GoogleGenAI } from '@google/genai';
 import { trace, SpanStatusCode } from '@opentelemetry/api';
 import { logger } from '../../utils/logger';
 import type { ChatMessage } from '../../validation/schemas';
 
-const PROJECT = process.env.VERTEX_AI_PROJECT ?? '';
-const LOCATION = process.env.VERTEX_AI_LOCATION ?? 'us-central1';
-const MODEL = 'gemini-3.1-flash-lite-preview';
-
-const vertexAI = new VertexAI({ project: PROJECT, location: LOCATION });
+const MODEL = 'gemini-2.5-flash-lite-preview-06-17';
 const tracer = trace.getTracer('gemini-service');
 
-function toVertexContent(messages: ChatMessage[]): Content[] {
-  return messages.map((m) => ({
-    role: m.role,
-    parts: [{ text: m.content }],
-  }));
+function getClient(): GoogleGenAI {
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey) throw new Error('GEMINI_API_KEY environment variable is not set');
+  return new GoogleGenAI({ apiKey });
 }
 
 export async function generateChatResponse(
@@ -31,22 +22,23 @@ export async function generateChatResponse(
     span.setAttribute('history_length', history.length);
 
     try {
-      const model = vertexAI.getGenerativeModel({
+      const ai = getClient();
+
+      const chat = ai.chats.create({
         model: MODEL,
-        systemInstruction: systemPrompt
-          ? { role: 'system', parts: [{ text: systemPrompt }] }
-          : undefined,
-        generationConfig: {
+        config: {
+          systemInstruction: systemPrompt,
           maxOutputTokens: 2048,
           temperature: 0.7,
         },
+        history: history.map((m) => ({
+          role: m.role,
+          parts: [{ text: m.content }],
+        })),
       });
 
-      const chat = model.startChat({ history: toVertexContent(history) });
-
-      const result: GenerateContentResult = await chat.sendMessage(userMessage);
-      const response = result.response;
-      const text = response.candidates?.[0]?.content?.parts?.[0]?.text ?? '';
+      const response = await chat.sendMessage({ message: userMessage });
+      const text = response.text ?? '';
 
       span.setStatus({ code: SpanStatusCode.OK });
       logger.debug({ inputChars: userMessage.length, outputChars: text.length }, 'Gemini response generated');
