@@ -18,7 +18,8 @@ export default function App() {
     e.preventDefault();
     if (!input.trim() || loading) return;
 
-    const userMessage: Message = { role: 'user', content: input };
+    const messageText = input;
+    const userMessage: Message = { role: 'user', content: messageText };
     const updatedHistory = [...messages, userMessage];
     setMessages(updatedHistory);
     setInput('');
@@ -30,7 +31,7 @@ export default function App() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          message: input,
+          message: messageText,
           history: messages,
           useGrounding,
         }),
